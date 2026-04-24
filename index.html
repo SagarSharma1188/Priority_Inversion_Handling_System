@@ -497,3 +497,102 @@
     margin-top: 8px;
   }
   .done-banner.show { display: block; }
+
+  /* Legend row */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+    font-size: 0.72rem;
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .leg { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <h1>Priority Inversion Handling System</h1>
+    <div class="tagline">Simulate · Visualize · Understand</div>
+  </header>
+
+  <div class="main-grid">
+    <!-- Left: Scenarios + Controls -->
+    <div>
+      <div class="panel" style="margin-bottom:12px">
+        <div class="panel-header"><div class="dot"></div><h3>Scenarios</h3></div>
+        <div class="panel-body">
+          <div class="scenario-btns">
+            <button class="btn-scenario s-none active" onclick="selectScenario('none')">
+              <span class="btn-label">SCENARIO 1</span>
+              <span class="btn-title" style="color:var(--red)">No Solution</span>
+              <span class="btn-desc">Watch priority inversion occur — MED preempts LOW while HIGH waits</span>
+            </button>
+            <button class="btn-scenario s-pip" onclick="selectScenario('pip')">
+              <span class="btn-label">SCENARIO 2</span>
+              <span class="btn-title" style="color:var(--green)">Priority Inheritance</span>
+              <span class="btn-desc">LOW inherits HIGH's priority → MED can't preempt</span>
+            </button>
+            <button class="btn-scenario s-pcp" onclick="selectScenario('pcp')">
+              <span class="btn-label">SCENARIO 3</span>
+              <span class="btn-title" style="color:var(--yellow)">Priority Ceiling</span>
+              <span class="btn-desc">Mutex ceiling boosts LOW immediately — proactive fix</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><div class="dot"></div><h3>Controls</h3></div>
+        <div class="panel-body">
+          <div class="controls">
+            <button class="ctrl-btn play" id="playBtn" onclick="togglePlay()">▶ PLAY</button>
+            <button class="ctrl-btn" onclick="stepForward()">STEP ▶</button>
+            <button class="ctrl-btn" onclick="resetSim()">↺ RESET</button>
+          </div>
+          <div class="speed-row">
+            <label>SPEED</label>
+            <input type="range" id="speedSlider" min="1" max="5" value="2" oninput="updateSpeed()">
+            <span id="speedLabel" style="font-family:monospace;font-size:0.75rem;color:var(--accent);min-width:24px">2×</span>
+          </div>
+
+          <div class="legend" style="margin-top:12px">
+            <div class="leg"><div class="leg-dot" style="background:var(--high)"></div>HIGH</div>
+            <div class="leg"><div class="leg-dot" style="background:var(--med)"></div>MED</div>
+            <div class="leg"><div class="leg-dot" style="background:var(--low)"></div>LOW</div>
+            <div class="leg"><div class="leg-dot" style="background:rgba(255,107,53,0.6);border:1px solid var(--accent2)"></div>MUTEX</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Simulation -->
+    <div class="sim-area">
+
+      <!-- Tick counter -->
+      <div class="tick-row">
+        <div class="tick-label">TICK</div>
+        <div class="tick-val" id="tickVal">00</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--dim)" id="scenarioLabel">NO SOLUTION</div>
+        <div class="inversion-badge inv" id="invBadge">⚠ INVERSION</div>
+        <div class="inversion-badge ok" id="okBadge">✓ RESOLVED</div>
+      </div>
+
+      <!-- Task lanes -->
+      <div class="task-lanes" id="taskLanes">
+        <!-- Built by JS -->
+      </div>
+
+      <!-- Event log -->
+      <div class="panel">
+        <div class="panel-header"><div class="dot"></div><h3>Event Log</h3></div>
+        <div class="log-box" id="logBox"></div>
+      </div>
+
+      <div class="done-banner" id="doneBanner">✓ SIMULATION COMPLETE — All tasks finished</div>
+    </div>
+  </div>
