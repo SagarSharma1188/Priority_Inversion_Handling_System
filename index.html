@@ -596,3 +596,128 @@
       <div class="done-banner" id="doneBanner">✓ SIMULATION COMPLETE — All tasks finished</div>
     </div>
   </div>
+  <!-- Info cards -->
+  <div class="info-row">
+    <div class="info-card inv">
+      <h4>Priority Inversion</h4>
+      <p>Occurs when a HIGH-priority task is blocked by a LOW-priority task holding a shared mutex, while a MEDIUM-priority task runs freely — effectively inverting the intended priority order.</p>
+    </div>
+    <div class="info-card pip">
+      <h4>Priority Inheritance (PIP)</h4>
+      <p>When HIGH blocks on a mutex held by LOW, LOW temporarily inherits HIGH's priority. This prevents MED from preempting LOW, so the mutex is released faster and HIGH can proceed.</p>
+    </div>
+    <div class="info-card pcp">
+      <h4>Priority Ceiling (PCP)</h4>
+      <p>Each mutex has a "ceiling" equal to the highest priority task that may lock it. Any task acquiring the mutex is immediately boosted to that ceiling — preventing inversion before it starts.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  Simulation Engine (mirrors the C logic)
+// ═══════════════════════════════════════════════
+
+const PRIO_HIGH = 1, PRIO_MED = 5, PRIO_LOW = 10, CEILING = 1;
+const ID_HIGH = 0, ID_MED = 1, ID_LOW = 2;
+
+let scenario = 'none';
+let tick = 0;
+let playing = false;
+let timer = null;
+let speed = 2;
+let inversionOccurred = false;
+let resolutionApplied = false;
+let inherited = false;
+
+// Simulation state — arrays of { id, name, basePrio, curPrio, state,
+//   needsMutex, holdingMutex, arriveTick, totalTicks, doneTicks, mutexTicks, mutexDone }
+let tasks = [];
+let mutexOwner = -1;
+// Timeline: array of 25 items per task, each: 'run'|'blocked'|'ready'|'idle'|'mutex'
+let timeline = [[], [], []];
+
+function makeTask(id, name, bp, state, needsMutex, holdingMutex, arriveT, total, mtx) {
+  return { id, name, basePrio:bp, curPrio:bp, state, needsMutex,
+           holdingMutex, arriveTick:arriveT, totalTicks:total, doneTicks:0,
+           mutexTicks:mtx, mutexDone:0 };
+}
+
+function resetState() {
+  mutexOwner = -1;
+  inversionOccurred = false;
+  resolutionApplied = false;
+  inherited = false;
+  tick = 0;
+  timeline = [Array(26).fill('idle'), Array(26).fill('idle'), Array(26).fill('idle')];
+  // LOW starts with mutex
+  tasks = [
+    makeTask(ID_HIGH,'HIGH_Task',PRIO_HIGH,'hidden', true,  false, 2, 6, 3),
+    makeTask(ID_MED, 'MED_Task', PRIO_MED, 'hidden', false, false, 3, 4, 0),
+    makeTask(ID_LOW, 'LOW_Task', PRIO_LOW, 'running',true,  true,  0, 8, 5)
+  ];
+  mutexOwner = ID_LOW;
+  if (scenario === 'pcp') {
+    tasks[ID_LOW].curPrio = CEILING;
+    addLog(0, '[PCP] LOW_Task acquired mutex → boosted to ceiling=' + CEILING, 'event-pcp');
+  }
+}
+
+function pickRunner() {
+  let best = -1, bp = 9999;
+  for (let i = 0; i < 3; i++) {
+    const t = tasks[i];
+    if (t.state === 'running' || t.state === 'ready')
+      if (t.curPrio < bp) { bp = t.curPrio; best = i; }
+  }
+  return best;
+}
+
+function allDone() {
+  return tasks.every(t => t.state === 'finished');
+}
+
+function stepOnce() {
+  if (allDone()) return false;
+  if (tick > 25) return false;
+
+  // Arrivals
+  if (tick === tasks[ID_HIGH].arriveTick && tasks[ID_HIGH].state === 'hidden') {
+    tasks[ID_HIGH].state = 'ready';
+    addLog(tick, 'HIGH_Task ARRIVED (prio=1, needs mutex)');
+  }
+  if (tick === tasks[ID_MED].arriveTick && tasks[ID_MED].state === 'hidden') {
+    tasks[ID_MED].state = 'ready';
+    addLog(tick, 'MED_Task ARRIVED (prio=5, no mutex needed)');
+  }
+
+  // HIGH tries mutex
+  if (tasks[ID_HIGH].state === 'ready' && tick >= tasks[ID_HIGH].arriveTick) {
+    if (mutexOwner === -1) {
+      mutexOwner = ID_HIGH;
+      tasks[ID_HIGH].holdingMutex = true;
+      if (scenario === 'pcp') tasks[ID_HIGH].curPrio = CEILING;
+      tasks[ID_HIGH].state = 'running';
+      addLog(tick, 'HIGH_Task acquired mutex' + (scenario==='pcp' ? ' [boosted to ceiling=1]' : ''));
+    } else if (mutexOwner === ID_LOW) {
+      tasks[ID_HIGH].state = 'blocked';
+
+      if (scenario === 'none' && !inversionOccurred) {
+        inversionOccurred = true;
+        addLog(tick, '⚠ PRIORITY INVERSION! HIGH blocked. MED may preempt LOW!', 'event-inv');
+      }
+      if (scenario === 'pip' && !inherited) {
+        inherited = true;
+        tasks[ID_LOW].curPrio = PRIO_HIGH;
+        resolutionApplied = true;
+        addLog(tick, '[PIP] HIGH blocked → LOW inherits priority=1', 'event-pip');
+        addLog(tick, '      MED (prio=5) can no longer preempt LOW!', 'event-pip');
+      }
+      if (scenario === 'pcp' && !inversionOccurred) {
+        inversionOccurred = true;
+        addLog(tick, '[PCP] HIGH blocked — but LOW already at ceiling=1; no inversion!', 'event-pcp');
+        resolutionApplied = true;
+      }
+    }
+  }
