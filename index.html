@@ -721,3 +721,131 @@ function stepOnce() {
       }
     }
   }
+const runner = pickRunner();
+  if (runner === -1) { tick++; return true; }
+
+  // Demote others
+  for (let i = 0; i < 3; i++)
+    if (i !== runner && tasks[i].state === 'running') tasks[i].state = 'ready';
+  tasks[runner].state = 'running';
+
+  // Record timeline
+  if (tick <= 25) {
+    for (let i = 0; i < 3; i++) {
+      let s = tasks[i].state;
+      if (s === 'hidden') timeline[i][tick] = 'idle';
+      else if (i === runner && tasks[i].holdingMutex) timeline[i][tick] = 'mutex';
+      else timeline[i][tick] = s;
+    }
+  }
+
+  addLog(tick, '▶ RUNNING: ' + tasks[runner].name + '  (prio=' + tasks[runner].curPrio + ')');
+
+  tasks[runner].doneTicks++;
+
+  // LOW releases mutex
+  if (runner === ID_LOW && tasks[ID_LOW].holdingMutex) {
+    tasks[ID_LOW].mutexDone++;
+    if (tasks[ID_LOW].mutexDone >= tasks[ID_LOW].mutexTicks) {
+      mutexOwner = -1;
+      tasks[ID_LOW].holdingMutex = false;
+      tasks[ID_LOW].curPrio = PRIO_LOW;
+      addLog(tick, '  LOW_Task released mutex → priority restored to 10', 'event-unblock');
+      if (tasks[ID_HIGH].state === 'blocked') {
+        tasks[ID_HIGH].state = 'ready';
+        addLog(tick, '  HIGH_Task UNBLOCKED', 'event-unblock');
+      }
+    }
+  }
+
+  // HIGH releases mutex
+  if (runner === ID_HIGH && tasks[ID_HIGH].holdingMutex) {
+    tasks[ID_HIGH].mutexDone++;
+    if (tasks[ID_HIGH].mutexDone >= tasks[ID_HIGH].mutexTicks) {
+      mutexOwner = -1;
+      tasks[ID_HIGH].holdingMutex = false;
+      tasks[ID_HIGH].curPrio = PRIO_HIGH;
+    }
+  }
+
+  if (tasks[runner].doneTicks >= tasks[runner].totalTicks) {
+    tasks[runner].state = 'finished';
+    addLog(tick, '  ✓ ' + tasks[runner].name + ' FINISHED', 'event-done');
+  }
+
+  tick++;
+  return true;
+}
+
+// ═══════════════════════════════════════════════
+//  UI Rendering
+// ═══════════════════════════════════════════════
+
+function addLog(t, msg, cls) {
+  const box = document.getElementById('logBox');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-tick">[T=${String(t).padStart(2,'0')}]</span>
+                    <span class="log-msg ${cls||''}">${msg}</span>`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderTasks() {
+  const container = document.getElementById('taskLanes');
+  container.innerHTML = '';
+  const colors = ['high', 'med', 'low'];
+
+  tasks.forEach((t, i) => {
+    if (t.state === 'hidden') return;
+
+    const isRunning = t.state === 'running';
+    const isBlocked = t.state === 'blocked';
+    const laneClass = isRunning ? 'running-lane' : isBlocked ? 'blocked-lane' : '';
+
+    const pct = t.totalTicks > 0 ? Math.round((t.doneTicks / t.totalTicks) * 100) : 0;
+    const st = t.state.toUpperCase();
+    const stClass = 'badge-state-' + t.state.charAt(0).toUpperCase() + t.state.slice(1).toUpperCase();
+
+    // Build timeline ticks
+    let tlHtml = '';
+    for (let k = 0; k <= 24; k++) {
+      const ts = timeline[i][k];
+      let cls = 'tl-empty';
+      if (ts === 'running') cls = 'tl-' + colors[i];
+      else if (ts === 'mutex') cls = 'tl-' + colors[i];
+      else if (ts === 'blocked') cls = 'tl-blocked';
+      tlHtml += `<div class="tl-tick ${cls}" style="left:${k*4}%;width:4%"
+                  title="T=${k}: ${ts||'idle'}"></div>`;
+    }
+    // Mutex marker overlay
+    const mutexStart = 0, mutexEnd = t.holdingMutex ? (t.mutexDone / 25 * 100) : (t.id === ID_LOW ? (t.mutexDone / 25 * 100) : 0);
+
+    const mutexBadge = t.holdingMutex ? `<span class="badge badge-mutex">🔒 MUTEX</span>` : '';
+    const pioBoostBadge = (t.curPrio !== t.basePrio) ?
+      `<span class="badge" style="background:rgba(255,215,0,0.12);border:1px solid gold;color:gold">
+        BOOSTED→${t.curPrio}</span>` : '';
+
+    container.innerHTML += `
+      <div class="task-lane ${laneClass}">
+        <div>
+          <div class="task-name ${colors[i]}">${t.name}</div>
+          <div class="task-meta">
+            <span class="badge badge-prio">P=${t.curPrio}</span>
+            <span class="badge ${stClass}">${st}</span>
+            ${mutexBadge}
+            ${pioBoostBadge}
+          </div>
+        </div>
+        <div>
+          <div class="timeline-bar">${tlHtml}</div>
+        </div>
+        <div class="task-progress">
+          <div class="prog-frac">${t.doneTicks}/${t.totalTicks}</div>
+          <div class="prog-bar-wrap">
+            <div class="prog-bar-fill ${colors[i]}" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>`;
+  });
+}
