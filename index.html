@@ -849,3 +849,55 @@ function renderTasks() {
       </div>`;
   });
 }
+function renderHUD() {
+  document.getElementById('tickVal').textContent = String(tick).padStart(2, '0');
+
+  const invBadge = document.getElementById('invBadge');
+  const okBadge  = document.getElementById('okBadge');
+  invBadge.classList.remove('show');
+  okBadge.classList.remove('show');
+
+  if (scenario === 'none' && inversionOccurred) {
+    invBadge.classList.add('show');
+  } else if ((scenario === 'pip' || scenario === 'pcp') && resolutionApplied) {
+    okBadge.classList.add('show');
+  }
+
+  const labels = { none:'NO SOLUTION', pip:'PRIORITY INHERITANCE', pcp:'PRIORITY CEILING' };
+  document.getElementById('scenarioLabel').textContent = labels[scenario];
+
+  const done = allDone();
+  document.getElementById('doneBanner').classList.toggle('show', done);
+  if (done && playing) { playing = false; clearInterval(timer); updatePlayBtn(); }
+}
+
+function updatePlayBtn() {
+  const btn = document.getElementById('playBtn');
+  btn.textContent = playing ? '⏸ PAUSE' : '▶ PLAY';
+  btn.className = 'ctrl-btn ' + (playing ? 'pause' : 'play');
+}
+
+function render() {
+  renderTasks();
+  renderHUD();
+}
+
+// ═══════════════════════════════════════════════
+//  Controls
+// ═══════════════════════════════════════════════
+
+function selectScenario(s) {
+  scenario = s;
+  document.querySelectorAll('.btn-scenario').forEach(b => b.classList.remove('active'));
+  document.querySelector('.s-' + s).classList.add('active');
+  resetSim();
+}
+
+function resetSim() {
+  playing = false; clearInterval(timer); updatePlayBtn();
+  document.getElementById('logBox').innerHTML = '';
+  document.getElementById('doneBanner').classList.remove('show');
+  resetState();
+  render();
+}
+  
