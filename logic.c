@@ -29,3 +29,16 @@ typedef struct {
     int mutex_ticks;
     int mutex_done;
 } Task;
+Task tasks[MAX_TASKS];
+int  mutex_owner; /* -1 = free */
+
+void sep(void)     { printf("==================================================\n"); }
+void sub_sep(void) { printf("--------------------------------------------------\n"); }
+
+const char* st(TaskState s) {
+    if(s==READY)    return "READY   ";
+    if(s==RUNNING)  return "RUNNING ";
+    if(s==BLOCKED)  return "BLOCKED ";
+    if(s==FINISHED) return "FINISHED";
+    return "?";
+}
