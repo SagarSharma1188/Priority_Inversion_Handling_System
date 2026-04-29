@@ -900,4 +900,34 @@ function resetSim() {
   resetState();
   render();
 }
-  
+  function stepForward() {
+  if (!allDone()) { stepOnce(); render(); }
+}
+
+function togglePlay() {
+  if (allDone()) return;
+  playing = !playing;
+  updatePlayBtn();
+  if (playing) {
+    const delay = [600, 400, 250, 150, 80][speed - 1];
+    timer = setInterval(() => {
+      if (allDone() || !stepOnce()) {
+        playing = false; clearInterval(timer); updatePlayBtn(); render();
+      } else { render(); }
+    }, delay);
+  } else {
+    clearInterval(timer);
+  }
+}
+
+function updateSpeed() {
+  speed = parseInt(document.getElementById('speedSlider').value);
+  document.getElementById('speedLabel').textContent = speed + '×';
+  if (playing) { clearInterval(timer); playing = false; togglePlay(); }
+}
+
+// ── Init
+resetSim();
+</script>
+</body>
+</html>
