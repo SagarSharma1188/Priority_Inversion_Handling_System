@@ -42,3 +42,16 @@ const char* st(TaskState s) {
     if(s==FINISHED) return "FINISHED";
     return "?";
 }
+void reset(void) {
+    mutex_owner = -1;
+    /* HIGH: arrives t=2, needs mutex, 6 ticks, holds mutex 3 ticks */
+    tasks[ID_HIGH] = (Task){ID_HIGH,"HIGH_Task",PRIO_HIGH,PRIO_HIGH,READY,TRUE,FALSE,2,6,0,3,0};
+    /* MED: arrives t=3, no mutex, 4 ticks */
+    tasks[ID_MED]  = (Task){ID_MED, "MED_Task", PRIO_MED, PRIO_MED, READY,FALSE,FALSE,3,4,0,0,0};
+    /* LOW: arrives t=0, starts RUNNING, holds mutex, 8 ticks, mutex 5 ticks */
+    tasks[ID_LOW]  = (Task){ID_LOW, "LOW_Task", PRIO_LOW, PRIO_LOW, RUNNING,TRUE,TRUE,0,8,0,5,0};
+    mutex_owner = ID_LOW;
+    /* Hide HIGH and MED until arrival */
+    tasks[ID_HIGH].state = FINISHED;
+    tasks[ID_MED].state  = FINISHED;
+}
