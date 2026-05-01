@@ -55,3 +55,25 @@ void reset(void) {
     tasks[ID_HIGH].state = FINISHED;
     tasks[ID_MED].state  = FINISHED;
 }
+int pick_runner(void) {
+    int best=-1, bp=9999;
+    for(int i=0;i<MAX_TASKS;i++) {
+        if(tasks[i].state==RUNNING || tasks[i].state==READY)
+            if(tasks[i].cur_prio < bp) { bp=tasks[i].cur_prio; best=i; }
+    }
+    return best;
+}
+
+int all_done(void) {
+    for(int i=0;i<MAX_TASKS;i++) if(tasks[i].state!=FINISHED) return FALSE;
+    return TRUE;
+}
+
+void print_state(int tick, int runner) {
+    printf("[T=%02d] %-12s prio=%-2d %s | %-12s prio=%-2d %s | %-12s prio=%-2d %s  => RUNS: %s\n",
+        tick,
+        tasks[0].name, tasks[0].cur_prio, st(tasks[0].state),
+        tasks[1].name, tasks[1].cur_prio, st(tasks[1].state),
+        tasks[2].name, tasks[2].cur_prio, st(tasks[2].state),
+        runner>=0 ? tasks[runner].name : "(none)");
+}
