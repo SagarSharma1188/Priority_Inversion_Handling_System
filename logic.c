@@ -77,3 +77,85 @@ void print_state(int tick, int runner) {
         tasks[2].name, tasks[2].cur_prio, st(tasks[2].state),
         runner>=0 ? tasks[runner].name : "(none)");
 }
+int tick_step(int tick, int use_pip, int use_pcp, int* inherited) {
+
+    /* Arrivals */
+    if(tick == tasks[ID_HIGH].arrive_tick) {
+        tasks[ID_HIGH].state = READY;
+        printf("         >>> HIGH_Task ARRIVED (prio=%d, needs mutex)\n", PRIO_HIGH);
+    }
+    if(tick == tasks[ID_MED].arrive_tick) {
+        tasks[ID_MED].state = READY;
+        printf("         >>> MED_Task ARRIVED  (prio=%d, no mutex)\n", PRIO_MED);
+    }
+
+    /* HIGH tries to grab mutex */
+    if(tasks[ID_HIGH].state == READY) {
+        if(mutex_owner == -1) {
+            mutex_owner = ID_HIGH;
+            tasks[ID_HIGH].holding_mutex = TRUE;
+            if(use_pcp) tasks[ID_HIGH].cur_prio = MUTEX_CEILING;
+            tasks[ID_HIGH].state = RUNNING;
+            printf("         >>> HIGH_Task acquired mutex%s\n",
+                   use_pcp ? " [PCP: boosted to ceiling=1]" : "");
+        } else {
+            /* Must block */
+            tasks[ID_HIGH].state = BLOCKED;
+            printf("         *** HIGH_Task BLOCKED — mutex held by LOW_Task\n");
+
+            if(use_pip && !(*inherited)) {
+                tasks[ID_LOW].cur_prio = PRIO_HIGH;
+                *inherited = TRUE;
+                printf("         [PIP] LOW_Task inherits priority %d → prevents MED preemption!\n",
+                       PRIO_HIGH);
+            }
+            if(!use_pip && !use_pcp) {
+                printf("         !!! PRIORITY INVERSION: MED may preempt LOW while HIGH waits!\n");
+            }
+        }
+    }
+
+    int runner = pick_runner();
+    if(runner == -1) return 0;
+
+    /* Set states */
+    for(int i=0;i<MAX_TASKS;i++)
+        if(i!=runner && tasks[i].state==RUNNING) tasks[i].state=READY;
+    tasks[runner].state = RUNNING;
+
+    print_state(tick, runner);
+
+    /* Advance */
+    tasks[runner].done_ticks++;
+
+    /* Mutex release by LOW */
+    if(runner==ID_LOW && tasks[ID_LOW].holding_mutex) {
+        tasks[ID_LOW].mutex_done++;
+        if(tasks[ID_LOW].mutex_done >= tasks[ID_LOW].mutex_ticks) {
+            mutex_owner = -1;
+            tasks[ID_LOW].holding_mutex = FALSE;
+            tasks[ID_LOW].cur_prio = PRIO_LOW;
+            printf("         >>> LOW_Task released mutex (priority restored to %d)\n", PRIO_LOW);
+            if(tasks[ID_HIGH].state==BLOCKED) {
+                tasks[ID_HIGH].state = READY;
+                printf("         >>> HIGH_Task UNBLOCKED\n");
+            }
+        }
+    }
+    /* Mutex release by HIGH */
+    if(runner==ID_HIGH && tasks[ID_HIGH].holding_mutex) {
+        tasks[ID_HIGH].mutex_done++;
+        if(tasks[ID_HIGH].mutex_done >= tasks[ID_HIGH].mutex_ticks) {
+            mutex_owner = -1;
+            tasks[ID_HIGH].holding_mutex = FALSE;
+            tasks[ID_HIGH].cur_prio = PRIO_HIGH;
+        }
+    }
+
+    /* Finish */
+    if(tasks[runner].done_ticks >= tasks[runner].total_ticks) {
+        tasks[runner].state = FINISHED;
+        printf("         >>> %s FINISHED\n", tasks[runner].name);
+    }
+    return 1;
+}
