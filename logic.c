@@ -159,3 +159,18 @@ int tick_step(int tick, int use_pip, int use_pcp, int* inherited) {
     }
     return 1;
 }
+void scenario1(void) {
+    sep();
+    printf("  SCENARIO 1: No Solution — Priority Inversion Demo\n");
+    sub_sep();
+    printf("  t=0 : LOW_Task starts, acquires mutex\n");
+    printf("  t=2 : HIGH_Task arrives, needs mutex\n");
+    printf("  t=3 : MED_Task arrives, no mutex needed\n");
+    printf("  Expected: MED preempts LOW while HIGH waits (INVERSION)\n");
+    sep();
+    reset();
+    int dummy = FALSE;
+    for(int t=0; t<=25 && !all_done(); t++) tick_step(t,FALSE,FALSE,&dummy);
+    printf("\n  OUTCOME: HIGH_Task was delayed by MED_Task — inversion occurred.\n");
+    sep(); printf("\n");
+}
