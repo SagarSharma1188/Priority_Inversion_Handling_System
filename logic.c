@@ -174,3 +174,70 @@ void scenario1(void) {
     printf("\n  OUTCOME: HIGH_Task was delayed by MED_Task — inversion occurred.\n");
     sep(); printf("\n");
 }
+void scenario2(void) {
+    sep();
+    printf("  SCENARIO 2: Priority Inheritance Protocol (PIP)\n");
+    sub_sep();
+    printf("  When HIGH blocks, LOW inherits HIGH's priority (=1)\n");
+    printf("  MED (prio=5) cannot preempt LOW at prio=1\n");
+    sep();
+    reset();
+    int inherited = FALSE;
+    for(int t=0; t<=25 && !all_done(); t++) tick_step(t,TRUE,FALSE,&inherited);
+    printf("\n  OUTCOME: Inversion prevented. HIGH ran before MED.\n");
+    sep(); printf("\n");
+}
+
+void scenario3(void) {
+    sep();
+    printf("  SCENARIO 3: Priority Ceiling Protocol (PCP)\n");
+    sub_sep();
+    printf("  Mutex ceiling = %d. Any task acquiring mutex is\n", MUTEX_CEILING);
+    printf("  immediately boosted to ceiling — proactive prevention.\n");
+    sep();
+    reset();
+    /* PCP boost at acquisition time (t=0) */
+    tasks[ID_LOW].cur_prio = MUTEX_CEILING;
+    printf("  [T=00] PCP applied: LOW_Task acquired mutex → boosted to ceiling=%d\n\n",
+           MUTEX_CEILING);
+    int dummy = FALSE;
+    for(int t=0; t<=25 && !all_done(); t++) tick_step(t,FALSE,TRUE,&dummy);
+    printf("\n  OUTCOME: Inversion impossible. LOW was already at ceiling priority.\n");
+    sep(); printf("\n");
+}
+
+void banner(void) {
+    sep();
+    printf("      PRIORITY INVERSION HANDLING SYSTEM\n");
+    printf("      BTech 2nd Year | Real-Time OS Simulation\n");
+    sub_sep();
+    printf("  Tasks:  HIGH(prio=1)  MED(prio=5)  LOW(prio=10)\n");
+    printf("  Mutex:  shared resource with ceiling=%d\n", MUTEX_CEILING);
+    printf("  LOW acquires mutex at t=0, HIGH arrives at t=2\n");
+    sep(); printf("\n");
+}
+
+int main(void) {
+    banner();
+    int ch = 0;
+    do {
+        printf("  1. No Solution (see inversion)\n");
+        printf("  2. Priority Inheritance Protocol\n");
+        printf("  3. Priority Ceiling Protocol\n");
+        printf("  4. Run All Three\n");
+        printf("  5. Exit\n");
+        printf("  Choice: ");
+        scanf("%d",&ch);
+        printf("\n");
+        switch(ch) {
+            case 1: scenario1(); break;
+            case 2: scenario2(); break;
+            case 3: scenario3(); break;
+            case 4: scenario1(); scenario2(); scenario3();
+                    printf("  All 3 scenarios complete. Compare outputs above.\n\n"); break;
+            case 5: printf("  Goodbye!\n\n"); break;
+            default: printf("  Invalid.\n\n");
+        }
+    } while(ch!=5);
+    return 0;
+}
